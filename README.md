@@ -2,6 +2,8 @@
 
 **DocQ** é uma solução completa de processamento de documentos que combina **OCR (Reconhecimento Óptico de Caracteres)**, **extração de informações** e **RAG (Retrieval-Augmented Generation)** para criar um sistema inteligente de perguntas e respostas sobre documentos escaneados.
 
+🌐 **Teste a aplicação online:** [Clicando aqui](http://54.200.154.241:8501/)
+
 ## 🎯 Principais Funcionalidades
 
 - ✅ **OCR Avançado**: PaddleOCR + TrOCR para extração precisa de texto
