@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:15
+    container_name: docq_postgres
+    environment:
+      POSTGRES_DB: docq_db
+      POSTGRES_USER: docq_user
+      POSTGRES_PASSWORD: docq_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docq_user -d docq_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Banco vetorial Qdrant
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: docq_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+
+  # API principal
+  api:
+    build: .
+    container_name: docq_api
+    ports:
+      - "8000:8000"
+    environment:
+      # Defina sua chave da Groq aqui ou no arquivo .env
+      GROQ_API_KEY: ${GROQ_API_KEY}  # Exemplo: gsk_xxxxxxxxxxxxxxxxxxxxxxxx
+      DATABASE_URL: postgresql://docq_user:docq_pass@postgres:5432/docq_db
+      QDRANT_URL: http://qdrant:6333
+      CHUNK_SIZE: 300
+      CHUNK_OVERLAP: 50
+      # Configurações OCR
+      OCR_CONFIDENCE_THRESHOLD: 0.3    # Threshold de confiança (0.1 a 1.0)
+      OCR_USE_PREPROCESSING: "true"     # Ativar pré-processamento de imagem
+      DEBUG: "false"
+      LOG_LEVEL: INFO
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Interface web (Streamlit)
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: docq_ui
+    ports:
+      - "8501:8501"
+    environment:
+      API_BASE_URL: http://api:8000
+      STREAMLIT_SERVER_PORT: 8501
+      STREAMLIT_SERVER_ADDRESS: 0.0.0.0
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+      STREAMLIT_SERVER_HEADLESS: "true"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+  qdrant_data:
+    driver: local
+
+networks:
+  default:
+    name: docq_network 
