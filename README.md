@@ -1,4 +1,4 @@
-# 🔍 DocQ - OCR + RAG para Documentos
+# 🔍 DocQ
 
 **DocQ** é uma solução completa de processamento de documentos que combina **OCR (Reconhecimento Óptico de Caracteres)**, **extração de informações** e **RAG (Retrieval-Augmented Generation)** para criar um sistema inteligente de perguntas e respostas sobre documentos escaneados.
 
@@ -40,7 +40,7 @@
 ### 1. Clone o Repositório
 
 ```bash
-git clone https://github.com/seu-usuario/docq.git
+git clone https://github.com/dnilsonc/docq.git
 cd docq
 ```
 
@@ -49,7 +49,7 @@ cd docq
 Crie um arquivo `.env` baseado no exemplo:
 
 ```bash
-cp .env.example .env
+cp .env.dev .env
 ```
 
 Edite o `.env` com suas configurações:
@@ -71,26 +71,14 @@ CHUNK_OVERLAP=50
 DEBUG=false
 ```
 
-### 3. Deploy com Docker Compose
-
-#### Opção A: Apenas Backend (Recomendado)
+### 3. Inciando a Aplicação
 
 ```bash
 # Subir todos os serviços
-docker-compose up -d
+docker-compose up -d --build
 
 # Verificar se tudo está funcionando
-docker-compose ps
-```
-
-#### Opção B: Com Interface Web
-
-```bash
-# Subir com interface Streamlit
-docker-compose --profile ui up -d
-
-# Verificar containers
-docker-compose --profile ui ps
+docker-compose ps -a
 ```
 
 ### 4. Verificação da Instalação
@@ -177,44 +165,6 @@ curl -X POST "http://localhost:8000/ask" \
 curl "http://localhost:8000/search?query=CNPJ&limit=5"
 ```
 
-## 🛠️ Desenvolvimento Local
-
-### 1. Configurar Ambiente Python
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate   # Windows
-
-pip install -r requirements.txt
-```
-
-### 2. Configurar Banco de Dados
-
-```bash
-# Subir apenas PostgreSQL e Qdrant
-docker-compose up postgres qdrant -d
-
-# Configurar tabelas
-python -c "from db.session import create_tables; create_tables()"
-```
-
-### 3. Executar API em Modo Debug
-
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 4. Testes
-
-```bash
-# Instalar dependências de teste
-pip install pytest pytest-asyncio httpx
-
-# Executar testes
-pytest tests/ -v
-```
-
 ## 📊 Monitoramento
 
 ### Verificar Logs
@@ -236,8 +186,6 @@ docker-compose logs qdrant
 # Status geral do sistema
 curl http://localhost:8000/health
 
-# Listar documentos processados
-curl http://localhost:8000/documents?limit=10
 ```
 
 ## 🔧 Configurações Avançadas
@@ -276,47 +224,6 @@ GROQ_API_KEY=gsk_...
 OPENAI_API_KEY=sk-...
 ```
 
-### Escalar Horizontalmente
-
-```yaml
-# docker-compose.yml
-api:
-  scale: 3  # Múltiplas instâncias da API
-```
-
-## 🚀 Deploy em Produção
-
-### 1. Usando Docker Swarm
-
-```bash
-docker swarm init
-docker stack deploy -c docker-compose.yml docq
-```
-
-### 2. Usando Kubernetes
-
-```bash
-# Gerar manifests
-kompose convert -f docker-compose.yml
-
-# Deploy
-kubectl apply -f docq-*.yaml
-```
-
-### 3. Deploy em Nuvem
-
-**Railway:**
-```bash
-railway login
-railway link
-railway up
-```
-
-**Render:**
-- Conectar repositório GitHub
-- Configurar variáveis de ambiente
-- Deploy automático
-
 ## 📝 API Endpoints
 
 | Método | Endpoint | Descrição |
@@ -335,97 +242,6 @@ railway up
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
-## 🧪 Exemplos de Uso
-
-### Processar Nota Fiscal
-
-```python
-import requests
-
-# Upload
-files = {'file': open('nota_fiscal.pdf', 'rb')}
-response = requests.post('http://localhost:8000/upload', files=files)
-doc_id = response.json()['id']
-
-# Aguardar processamento
-import time
-while True:
-    status = requests.get(f'http://localhost:8000/document/{doc_id}')
-    if status.json()['status'] == 'indexed':
-        break
-    time.sleep(2)
-
-# Fazer pergunta
-question = {"question": "Qual o CNPJ do emissor?"}
-answer = requests.post('http://localhost:8000/ask', json=question)
-print(answer.json()['answer'])
-```
-
-### Extrair Metadados
-
-```python
-# Buscar documento processado
-doc = requests.get(f'http://localhost:8000/document/{doc_id}')
-metadata = doc.json()['metadata']
-
-print(f"CNPJ: {metadata.get('cnpj', [])}")
-print(f"Valores: {metadata.get('valor', [])}")
-print(f"Datas: {metadata.get('data', [])}")
-```
-
-## 📈 Performance
-
-### Benchmarks Típicos
-
-- **Upload**: 2-5 segundos por documento
-- **OCR**: 5-15 segundos por página
-- **Indexação**: 1-3 segundos por documento
-- **Busca**: < 100ms
-- **Resposta RAG**: 1-5 segundos
-
-### Otimizações
-
-1. **GPU**: Habilitar CUDA para OCR mais rápido
-2. **Cache**: Redis para cache de embeddings
-3. **Workers**: Múltiplos workers Uvicorn
-4. **Batch**: Processamento em lote
-
-## ❗ Troubleshooting
-
-### Problemas Comuns
-
-**Erro de conexão com Qdrant:**
-```bash
-# Verificar se o serviço está rodando
-docker-compose ps qdrant
-
-# Verificar logs
-docker-compose logs qdrant
-```
-
-**Erro de OCR:**
-```bash
-# Verificar dependências do sistema
-docker exec -it docq_api apt list --installed | grep tesseract
-```
-
-**Erro de memória:**
-```bash
-# Aumentar memória Docker
-# Docker Desktop > Settings > Resources > Memory
-```
-
-### Logs de Debug
-
-```bash
-# Habilitar debug
-echo "DEBUG=true" >> .env
-docker-compose restart api
-
-# Ver logs detalhados
-docker-compose logs -f api
-```
-
 ## 🤝 Contribuindo
 
 1. Fork o projeto
@@ -437,15 +253,3 @@ docker-compose logs -f api
 ## 📄 Licença
 
 Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
-## 🙏 Agradecimentos
-
-- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) - OCR engine
-- [TrOCR](https://huggingface.co/microsoft/trocr-base-stage1) - Transformer OCR
-- [Qdrant](https://qdrant.tech/) - Vector database
-- [LangChain](https://langchain.com/) - RAG framework
-- [FastAPI](https://fastapi.tiangolo.com/) - Web framework
-
----
-
-**Desenvolvido com ❤️ para democratizar o acesso à informação em documentos** 
